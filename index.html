@@ -176,7 +176,7 @@
   <main class="flex-1 max-w-[1920px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-3 p-2.5 sm:p-3">
 
     <!-- PURE WORLD MAP (ONLY FLAGS & UNIFIED BORDERS) -->
-    <section class="lg:col-span-8 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative min-h-[460px] lg:min-h-[700px]">
+    <section class="lg:col-span-7 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative h-[320px] sm:h-[400px] lg:h-[510px] self-start w-full">
       <div id="map-viewport" class="relative flex-1 ocean-bg overflow-hidden cursor-grab active:cursor-grabbing select-none">
 
         <!-- Discrete Zoom Controls Floating Bottom-Right -->
@@ -213,7 +213,7 @@
     </section>
 
     <!-- RIGHT SIDEBAR: MODE CONTROLS, DICE ARENA & CHRONOLOGICAL TIMELINE -->
-    <aside class="lg:col-span-4 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+    <aside class="lg:col-span-5 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
 
       <!-- Sidebar Navigation Tabs -->
       <div class="grid grid-cols-3 border-b border-slate-800 bg-slate-950/60 p-1 gap-1">
@@ -278,9 +278,15 @@
           </div>
 
           <!-- Primary Button: PROCHAIN EVENEMENT (+2 mois à +2 ans) -->
-          <button id="btn-next-event" type="button" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-500 via-fuchsia-500 to-amber-500 hover:from-purple-400 hover:via-fuchsia-400 hover:to-amber-400 disabled:from-slate-800 disabled:via-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-black text-sm shadow-xl shadow-purple-500/20 transition flex items-center justify-center gap-2">
+          <button id="btn-next-event" type="button" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-500 via-fuchsia-500 to-amber-500 hover:from-purple-400 hover:via-fuchsia-400 hover:to-amber-400 disabled:from-slate-800 disabled:via-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-purple-500/20 transition flex items-center justify-center gap-2">
             <span>⏩</span>
             <span>PROCHAIN ÉVÉNEMENT (+2 mois à +2 ans)</span>
+          </button>
+
+          <!-- Launch Story War Button (Shown when a war breaks out in Story Mode) -->
+          <button id="btn-story-launch-combat" type="button" class="hidden w-full py-3 px-4 rounded-xl bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400 hover:from-rose-400 hover:to-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-rose-500/30 animate-pulse transition flex items-center justify-center gap-2">
+            <span>⚔️</span>
+            <span>Lancer le Combat (3 Dés) !</span>
           </button>
 
           <!-- Current Story Event Narrative Card -->
@@ -469,6 +475,7 @@
     let attackerIso = null;
     let defenderIso = null;
     let storyFocusIso = null;
+    let pendingStoryWar = null;
     let isRolling = false;
     let isRoulette = false;
     let battleCount = 0;
@@ -630,6 +637,8 @@
       attackerIso = null;
       defenderIso = null;
       storyFocusIso = null;
+      pendingStoryWar = null;
+      document.getElementById('btn-story-launch-combat')?.classList.add('hidden');
       isRolling = false;
       isRoulette = false;
       battleCount = 0;
@@ -832,7 +841,16 @@
       if (btnP1) btnP1.disabled = isRolling || isRoulette;
       if (btnP2) btnP2.disabled = !attackerIso || isRolling || isRoulette;
       if (btnRoll) btnRoll.disabled = !(attackerIso && defenderIso) || isRolling || isRoulette;
-      if (btnNextEvent) btnNextEvent.disabled = isRolling || isRoulette;
+      if (btnNextEvent) btnNextEvent.disabled = isRolling || isRoulette || (gameMode === 'STORY' && pendingStoryWar !== null);
+      const btnStoryCombat = document.getElementById('btn-story-launch-combat');
+      if (btnStoryCombat) {
+        if (gameMode === 'STORY' && pendingStoryWar !== null) {
+          btnStoryCombat.classList.remove('hidden');
+          btnStoryCombat.disabled = isRolling || isRoulette;
+        } else {
+          btnStoryCombat.classList.add('hidden');
+        }
+      }
 
       document.getElementById('stat-current-date').textContent = formatCurrentDate();
       document.getElementById('story-date-display').innerHTML = `<span>📅</span><span>${formatCurrentDate()}</span>`;
@@ -1171,7 +1189,7 @@
       }
     }
 
-    // EVENT TYPE 1: GUERRE FRONTALIÈRE (Avec tirage des 3 dés + absorption)
+    // EVENT TYPE 1: GUERRE FRONTALIÈRE (Attend que le joueur clique sur "Lancer le Combat")
     function runStoryWarEvent(surviving, dateStr, deltaLabel) {
       const p1Iso = surviving[Math.floor(Math.random() * surviving.length)];
       const neighbors = getEmpireNeighbors(p1Iso);
@@ -1182,16 +1200,18 @@
       const emp2 = empires[p2Iso];
 
       const casusBelliList = [
-        `Suite à une crise frontalière majeure, <b>${emp1.name}</b> lance une offensive militaire contre son voisin <b>${emp2.name}</b>.`,
-        `Après la rupture d'un traité commercial stratégique, la guerre éclate entre <b>${emp1.name}</b> et <b>${emp2.name}</b>.`,
-        `Un incident maritime et territorial dégénère en conflit ouvert entre <b>${emp1.name}</b> et <b>${emp2.name}</b>.`,
-        `Mobilisation générale : <b>${emp1.name}</b> dispute la souveraineté régionale face à <b>${emp2.name}</b>.`
+        `Suite à une crise frontalière majeure, <b>${emp1.name}</b> mobilise ses armées face à son voisin <b>${emp2.name}</b>.`,
+        `Après la rupture d'un traité stratégique, la guerre est déclarée entre <b>${emp1.name}</b> et <b>${emp2.name}</b>.`,
+        `Un incident territorial dégénère en conflit militaire ouvert entre <b>${emp1.name}</b> et <b>${emp2.name}</b>.`,
+        `Mobilisation générale : <b>${emp1.name}</b> engage les hostilités contre son voisin <b>${emp2.name}</b>.`
       ];
       const reason = casusBelliList[Math.floor(Math.random() * casusBelliList.length)];
 
       storyFocusIso = null;
       setAttacker(p1Iso);
       selectDefender(p2Iso);
+
+      pendingStoryWar = { dateStr, deltaLabel, reason, p1Iso, p2Iso };
 
       const storyCard = document.getElementById('story-event-card');
       storyCard.innerHTML = `
@@ -1200,29 +1220,42 @@
           <span class="text-[10px] text-slate-400">${deltaLabel}</span>
         </div>
         <p class="text-slate-200 text-xs leading-relaxed mt-1">${reason}</p>
-        <div class="text-[11px] text-amber-300 font-bold mt-1">🎲 Résolution du conflit aux 3 dés en cours...</div>
+        <div class="text-[11px] text-amber-300 font-bold mt-1">
+          👉 Cliquez sur <b>« ⚔️ Lancer le Combat (3 Dés) ! »</b> ci-dessus pour résoudre l'affrontement !
+        </div>
       `;
 
-      showAbsorptionToast(`⚔️ ${dateStr} : Guerre déclarée !`, `${emp1.name} affronte son voisin ${emp2.name} aux dés !`, 2800);
-
-      // Pause 850ms so the player sees the two countries on the map, then roll the 3 dice slowly!
-      isRoulette = true;
+      showAbsorptionToast(`⚔️ ${dateStr} : Guerre déclarée !`, `${emp1.name} vs ${emp2.name} — Cliquez sur « Lancer le Combat » !`, 3400);
       updateCombatUI();
-      setTimeout(() => {
-        isRoulette = false;
-        rollBattleDice((winnerIso, loserIso, warDetails) => {
-          storyCard.innerHTML = `
-            <div class="flex items-center justify-between gap-2">
-              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black text-[10px] uppercase">⚔️ Issue de la Guerre • ${dateStr}</span>
-              <span class="text-[10px] text-slate-400">${deltaLabel}</span>
-            </div>
-            <p class="text-slate-200 text-xs leading-relaxed mt-1">${reason}</p>
-            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-emerald-300 font-semibold mt-1">
-              🏆 <b>${warDetails.winnerName}</b> remporte la guerre aux dés (<b>${warDetails.winScore}</b> à <b>${warDetails.loseScore}</b>) et annexe <b>${warDetails.loserName}</b> en une seule frontière !
-            </div>
-          `;
-        }, { dateStr, deltaLabel, reason });
-      }, 850);
+    }
+
+    function launchPendingStoryWar() {
+      if (!pendingStoryWar || isRolling || isRoulette) return;
+      const meta = pendingStoryWar;
+      const storyCard = document.getElementById('story-event-card');
+      storyCard.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+          <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black text-[10px] uppercase">⚔️ Combat en cours • ${meta.dateStr}</span>
+          <span class="text-[10px] text-slate-400">${meta.deltaLabel}</span>
+        </div>
+        <p class="text-slate-200 text-xs leading-relaxed mt-1">${meta.reason}</p>
+        <div class="text-[11px] text-amber-300 font-bold mt-1">🎲 Tirage des 3 dés en cours...</div>
+      `;
+
+      rollBattleDice((winnerIso, loserIso, warDetails) => {
+        pendingStoryWar = null;
+        storyCard.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black text-[10px] uppercase">⚔️ Issue de la Guerre • ${meta.dateStr}</span>
+            <span class="text-[10px] text-slate-400">${meta.deltaLabel}</span>
+          </div>
+          <p class="text-slate-200 text-xs leading-relaxed mt-1">${meta.reason}</p>
+          <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-emerald-300 font-semibold mt-1">
+            🏆 <b>${warDetails.winnerName}</b> remporte la guerre aux dés (<b>${warDetails.winScore}</b> à <b>${warDetails.loseScore}</b>) et annexe <b>${warDetails.loserName}</b> en une seule frontière !
+          </div>
+        `;
+        updateCombatUI();
+      }, meta);
     }
 
     // EVENT TYPE 2: COUP D'ÉTAT MILITAIRE
@@ -2005,8 +2038,9 @@
       document.getElementById('btn-random-p2').addEventListener('click', () => pickRandomDefender());
       document.getElementById('btn-roll-dice').addEventListener('click', () => rollBattleDice());
 
-      // Story Mode Control: PROCHAIN EVENEMENT
+      // Story Mode Controls: PROCHAIN EVENEMENT & LANCER LE COMBAT
       document.getElementById('btn-next-event').addEventListener('click', () => triggerNextStoryEvent());
+      document.getElementById('btn-story-launch-combat').addEventListener('click', () => launchPendingStoryWar());
 
       // Timeline Modal Controls
       document.getElementById('btn-open-timeline-modal').addEventListener('click', () => {
